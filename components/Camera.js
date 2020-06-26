@@ -3,7 +3,7 @@ import React, { Component } from 'react';
 import { AppRegistry, Dimensions, Image, ImageBackground, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
 import { RNCamera } from 'react-native-camera';
 import { dirPictures } from './dirStorage';
-
+import GetPixelColor from 'react-native-get-pixel-color';
 
 const RNFS = require('react-native-fs');
 const moment = require('moment');
@@ -34,13 +34,41 @@ const moveAttachment = async (filePath, newFilepath) => {
 class Camera extends Component {
   state = {}
   render() {
-    const { imageUri } = this.state;
-    const { correctedImage } = this.state;
+    const { imageUri, correctedImage, selectedColor, selectedColorName, height, width } = this.state;
+    var { selectedColorBackground } = 'transparent'
     if (correctedImage) {
+      if (selectedColor) {
+          selectedColorBackground = 'white'
+      }
       return (
-        <View style={{transform: [{ rotate: "90deg" }]}}>
-          <Image source={{uri: `data:image/jpg;base64,${correctedImage}`}} style={{width: Dimensions.get('window').height, height: Dimensions.get('window').width}}/>
-        </View>
+          <View>
+          <TouchableOpacity onPress={(evt) => this.getColor(evt) }>
+              <Image source={{uri: `data:image/jpg;base64,${correctedImage}`}} style={{width: width, height: height}}/>      
+          </TouchableOpacity>
+            <View
+              style ={{
+                position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  backgroundColor: selectedColorBackground,
+                  width: Dimensions.get('window').width,
+                  height: 130
+              }}
+            >
+              <View
+                style={{
+                  position: 'absolute',
+                  left: 5,
+                  top: 5,
+                  backgroundColor: selectedColor,
+                  width: Dimensions.get('window').width - 10,
+                  height: 70
+                }}
+              ></View>
+              <Text style={{ color: 'black', top: 80, textAlign: 'center', fontSize: 30}}>{selectedColorName}</Text>
+            </View>
+          </View>
+        
       )
     }
     if (imageUri) {
@@ -77,6 +105,43 @@ class Camera extends Component {
     );
   }
 
+  getColor = async evt => {
+    const x = evt.nativeEvent.locationX;
+    const y = evt.nativeEvent.locationY;
+    GetPixelColor.pickColorAt(x, y)
+      .then((color) => {
+        this.setState({selectedColor: color})
+        this.fetchColor(color)
+      })
+      .catch(err => {
+        console.log(err);
+      });
+  }
+
+  fetchColor = async color => {
+    try {
+      let response = await fetch(
+        "https://us-central1-bridge-urops.cloudfunctions.net/map_colors",
+        {
+          method: "POST",
+          headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({"hex": color})
+        }
+      );
+      if (response.status >= 200 && response.status < 300) {
+        const message = await response.json();
+        this.setState({selectedColorName: message.closest_name})
+      } else {
+        console.log(response)
+      }
+    } catch (errors) {
+      alert(errors);
+    }
+  }
+
   processImage = async () => {
     try {
       let response = await fetch(
@@ -93,6 +158,15 @@ class Camera extends Component {
       if (response.status >= 200 && response.status < 300){
         const message = await response.json();
         this.setState({correctedImage: message.corrected_image})
+        GetPixelColor.setImage(message.corrected_image)
+          .then(() => {
+            console.log("initialization successful");
+          })
+          .catch(err => {
+            console.log(err)
+          });
+      } else {
+        console.log(response)
       }
     } catch (errors) {
       alert(errors);
@@ -118,7 +192,7 @@ class Camera extends Component {
       if (this.camera && qrcode.type == "QR_CODE") {
         const options = { quality: 0.5, base64: true };
         const data = await this.camera.takePictureAsync(options);
-        this.setState({image: data.base64});
+        this.setState({image: data.base64, height: Dimensions.get('window').height, width: Dimensions.get('window').width});
         this.setState({qr : qrcode});
         this.processImage();
         this.saveImage(data.uri);
