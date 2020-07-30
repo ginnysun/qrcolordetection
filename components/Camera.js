@@ -39,11 +39,16 @@ class Camera extends Component {
     if (correctedImage) {
       if (selectedColor) {
           selectedColorBackground = 'white'
+      } else {
+        Vibration.vibrate(400);
       }
       return (
-          <View>
-          <TouchableOpacity onPress={(evt) => this.getColor(evt) }>
-              <Image source={{uri: `data:image/jpg;base64,${correctedImage}`}} style={{width: width, height: height}}/>      
+          <View style={{width: width, height: height}}>
+          <TouchableOpacity style={{width: width, height: height}}
+            onPress={(evt) => this.getColor(evt) }>
+              <Image source={{uri: `data:image/jpg;base64,${correctedImage}`}} 
+                style={{width: width, height: height}}
+                />      
           </TouchableOpacity>
             <View
               style ={{
@@ -73,7 +78,7 @@ class Camera extends Component {
     }
     if (imageUri) {
       console.log(this.state.qr)
-      Vibration.vibrate();
+      Vibration.vibrate(200);
       return (
         <Image source={{uri: imageUri}} style={{width: Dimensions.get('window').width, height: Dimensions.get('window').height}}/>
       )
@@ -106,8 +111,8 @@ class Camera extends Component {
   }
 
   getColor = async evt => {
-    const x = evt.nativeEvent.locationX;
-    const y = evt.nativeEvent.locationY;
+    const x = evt.nativeEvent.locationX*this.state.qr.bounds.height/this.state.width;
+    const y = evt.nativeEvent.locationY*this.state.qr.bounds.width/this.state.height;
     GetPixelColor.pickColorAt(x, y)
       .then((color) => {
         this.setState({selectedColor: color})
